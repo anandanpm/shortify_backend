@@ -7,7 +7,10 @@ exports.connectDB = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const connectDB = async () => {
     try {
-        const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://anand1732001:vH3KFNlravUbV1Rq@cluster0.axyuowj.mongodb.net/';
+        const mongoURI = process.env.MONGODB_URI;
+        if (!mongoURI) {
+            throw new Error('MONGODB_URI environment variable is not defined');
+        }
         const conn = await mongoose_1.default.connect(mongoURI);
         console.log(`✅ MongoDB connected: ${conn.connection.host}`);
     }
