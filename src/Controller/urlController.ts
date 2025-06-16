@@ -37,7 +37,7 @@ export class UrlController {
         existing = await Url.findOne({ shortCode });
       }
 
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      const baseUrl = process.env.BASE_URL;
       const shortUrl = `${baseUrl}/${shortCode}`;
 
       const url: IUrl = new Url({
