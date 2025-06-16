@@ -324,15 +324,17 @@ export class UserController {
       // Set cookies
       res.cookie('accessToken', accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+  secure: process.env.COOKIE_SECURE === 'true',
+  sameSite: process.env.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none' || 'none',
+  domain: process.env.COOKIE_DOMAIN || undefined,
         maxAge: 15 * 60 * 1000 // 15 minutes
       });
 
       res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+       httpOnly: true,
+  secure: process.env.COOKIE_SECURE === 'true',
+  sameSite: process.env.COOKIE_SAME_SITE as 'strict' | 'lax' | 'none' || 'none',
+  domain: process.env.COOKIE_DOMAIN || undefined,
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
