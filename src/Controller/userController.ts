@@ -358,89 +358,202 @@ export class UserController {
     }
   }
 
-  static async refreshToken(req: Request, res: Response): Promise<void> {
-    try {
-      const { refreshToken } = req.cookies;
+  // static async refreshToken(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const { refreshToken } = req.cookies;
 
-      if (!refreshToken) {
-        const response: ApiResponse = {
-          success: false,
-          message: ErrorMessages.REFRESH_TOKEN_NOT_PROVIDED
-        };
-        res.status(HttpStatusCode.UNAUTHORIZED).json(response);
-        return;
-      }
+  //     if (!refreshToken) {
+  //       const response: ApiResponse = {
+  //         success: false,
+  //         message: ErrorMessages.REFRESH_TOKEN_NOT_PROVIDED
+  //       };
+  //       res.status(HttpStatusCode.UNAUTHORIZED).json(response);
+  //       return;
+  //     }
 
-      // Verify refresh token
-      const decoded = JwtUtils.verifyRefreshToken(refreshToken);
-      if (!decoded) {
-        const response: ApiResponse = {
-          success: false,
-          message: ErrorMessages.INVALID_REFRESH_TOKEN
-        };
-        res.status(HttpStatusCode.UNAUTHORIZED).json(response);
-        return;
-      }
+  //     // Verify refresh token
+  //     const decoded = JwtUtils.verifyRefreshToken(refreshToken);
+  //     if (!decoded) {
+  //       const response: ApiResponse = {
+  //         success: false,
+  //         message: ErrorMessages.INVALID_REFRESH_TOKEN
+  //       };
+  //       res.status(HttpStatusCode.UNAUTHORIZED).json(response);
+  //       return;
+  //     }
 
-      // Find user
-      const user = await User.findById(decoded.userId);
-      if (!user) {
-        const response: ApiResponse = {
-          success: false,
-          message: ErrorMessages.USER_NOT_FOUND
-        };
-        res.status(HttpStatusCode.UNAUTHORIZED).json(response);
-        return;
-      }
+  //     // Find user
+  //     const user = await User.findById(decoded.userId);
+  //     if (!user) {
+  //       const response: ApiResponse = {
+  //         success: false,
+  //         message: ErrorMessages.USER_NOT_FOUND
+  //       };
+  //       res.status(HttpStatusCode.UNAUTHORIZED).json(response);
+  //       return;
+  //     }
 
-      // Generate new tokens
-      const newAccessToken = JwtUtils.generateAccessToken({
-        userId: user._id.toString(),
-        email: user.email
-      });
+  //     // Generate new tokens
+  //     const newAccessToken = JwtUtils.generateAccessToken({
+  //       userId: user._id.toString(),
+  //       email: user.email
+  //     });
 
-      const newRefreshToken = JwtUtils.generateRefreshToken({
-        userId: user._id.toString(),
-        email: user.email
-      });
+  //     const newRefreshToken = JwtUtils.generateRefreshToken({
+  //       userId: user._id.toString(),
+  //       email: user.email
+  //     });
 
-      // Set new cookies
-      res.cookie('accessToken', newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 15 * 60 * 1000 // 15 minutes
-      });
+  //     // Set new cookies
+  //     res.cookie('accessToken', newAccessToken, {
+  //       httpOnly: true,
+  //       secure: process.env.NODE_ENV === 'production',
+  //       sameSite: 'strict',
+  //       maxAge: 15 * 60 * 1000 // 15 minutes
+  //     });
 
-      res.cookie('refreshToken', newRefreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
+  //     res.cookie('refreshToken', newRefreshToken, {
+  //       httpOnly: true,
+  //       secure: process.env.NODE_ENV === 'production',
+  //       sameSite: 'strict',
+  //       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  //     });
 
-      const response: ApiResponse = {
-        success: true,
-        message: SuccessMessages.TOKENS_REFRESHED_SUCCESSFULLY,
-        data: {
-          user: {
-            id: user._id,
-            name: user.name,
-            email: user.email
-          }
-        }
-      };
+  //     const response: ApiResponse = {
+  //       success: true,
+  //       message: SuccessMessages.TOKENS_REFRESHED_SUCCESSFULLY,
+  //       data: {
+  //         user: {
+  //           id: user._id,
+  //           name: user.name,
+  //           email: user.email
+  //         }
+  //       }
+  //     };
 
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      console.error('Refresh token error:', error);
+  //     res.status(HttpStatusCode.OK).json(response);
+  //   } catch (error) {
+  //     console.error('Refresh token error:', error);
+  //     const response: ApiResponse = {
+  //       success: false,
+  //       message: ErrorMessages.SERVER_ERROR
+  //     };
+  //     res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json(response);
+  //   }
+  // }
+ static async refreshToken(req: Request, res: Response): Promise<void> {
+  try {
+    const { refreshToken } = req.cookies
+
+    if (!refreshToken) {
       const response: ApiResponse = {
         success: false,
-        message: ErrorMessages.SERVER_ERROR
-      };
-      res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json(response);
+        message: ErrorMessages.REFRESH_TOKEN_NOT_PROVIDED,
+      }
+      res.status(HttpStatusCode.UNAUTHORIZED).json(response)
+      return
     }
+
+    // Verify refresh token
+    let decoded
+    try {
+      decoded = JwtUtils.verifyRefreshToken(refreshToken)
+    } catch (error) {
+      // Clear invalid refresh token
+      res.clearCookie("refreshToken")
+      res.clearCookie("accessToken")
+
+      const response: ApiResponse = {
+        success: false,
+        message: ErrorMessages.INVALID_REFRESH_TOKEN,
+
+      }
+      res.status(HttpStatusCode.UNAUTHORIZED).json(response)
+      return
+    }
+
+    if (!decoded) {
+      res.clearCookie("refreshToken")
+      res.clearCookie("accessToken")
+
+      const response: ApiResponse = {
+        success: false,
+        message: ErrorMessages.INVALID_REFRESH_TOKEN,
+       
+      }
+      res.status(HttpStatusCode.UNAUTHORIZED).json(response)
+      return
+    }
+
+    // Find user
+    const user = await User.findById(decoded.userId)
+    if (!user) {
+      res.clearCookie("refreshToken")
+      res.clearCookie("accessToken")
+
+      const response: ApiResponse = {
+        success: false,
+        message: ErrorMessages.USER_NOT_FOUND,
+        
+      }
+      res.status(HttpStatusCode.UNAUTHORIZED).json(response)
+      return
+    }
+
+    // Generate new tokens
+    const newAccessToken = JwtUtils.generateAccessToken({
+      userId: user._id.toString(),
+      email: user.email,
+    })
+
+    const newRefreshToken = JwtUtils.generateRefreshToken({
+      userId: user._id.toString(),
+      email: user.email,
+    })
+
+    // Set new cookies
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    })
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    })
+
+    const response: ApiResponse = {
+      success: true,
+      message: SuccessMessages.TOKENS_REFRESHED_SUCCESSFULLY,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+        },
+      },
+    }
+
+    res.status(HttpStatusCode.OK).json(response)
+  } catch (error) {
+    console.error("Refresh token error:", error)
+
+    // Clear cookies on server error
+    res.clearCookie("refreshToken")
+    res.clearCookie("accessToken")
+
+    const response: ApiResponse = {
+      success: false,
+      message: ErrorMessages.SERVER_ERROR,
+    
+    }
+    res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json(response)
   }
+ }
 
   static async logout(req: Request, res: Response): Promise<void> {
     try {
