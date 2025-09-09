@@ -1,10 +1,7 @@
 import express, { Application } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
-
-import { connectDB } from './Config/db';
-
-
+import { connectDB } from './Config/db'
 import userRoutes from './Routes/userRoute';
 import urlRoutes from './Routes/urlRoute';
 import cookieParser from 'cookie-parser';

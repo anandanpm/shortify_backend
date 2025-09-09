@@ -42,6 +42,7 @@ const UrlSchema = new mongoose_1.Schema({
     shortCode: {
         type: String,
         required: true,
+        unique: true,
     },
     shortUrl: {
         type: String,
@@ -50,9 +51,13 @@ const UrlSchema = new mongoose_1.Schema({
     userId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: true,
+    },
+    clickCount: {
+        type: Number,
+        default: 0,
     },
 }, {
-    timestamps: true
+    timestamps: true,
 });
 exports.default = mongoose_1.default.model('Url', UrlSchema);

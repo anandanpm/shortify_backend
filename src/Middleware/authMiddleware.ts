@@ -17,11 +17,9 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
         return next()
       } catch (error) {
         console.error("Access token verification failed:", error)
-        // Don't automatically refresh here - let the client handle it
       }
     }
 
-    // If no valid access token, return 401 and let client handle refresh
     res.status(401).json({
       success: false,
       message: "Access token required or expired.",

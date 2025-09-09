@@ -22,8 +22,9 @@ class UrlController {
                     data: {
                         originalUrl: existingUrl.originalUrl,
                         shortUrl: existingUrl.shortUrl,
-                        shortCode: existingUrl.shortCode
-                    }
+                        shortCode: existingUrl.shortCode,
+                        clickCount: existingUrl.clickCount,
+                    },
                 };
                 res.status(statusCode_1.HttpStatusCode.OK).json(response);
                 return;
@@ -34,13 +35,14 @@ class UrlController {
                 shortCode = (0, nanoid_1.nanoid)(8);
                 existing = await urlModel_1.default.findOne({ shortCode });
             }
-            const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+            const baseUrl = process.env.BASE_URL;
             const shortUrl = `${baseUrl}/${shortCode}`;
             const url = new urlModel_1.default({
                 originalUrl,
                 shortCode,
                 shortUrl,
-                userId
+                userId,
+                clickCount: 0, // ✅ initialize
             });
             await url.save();
             const response = {
@@ -49,15 +51,16 @@ class UrlController {
                 data: {
                     originalUrl: url.originalUrl,
                     shortUrl: url.shortUrl,
-                    shortCode: url.shortCode
-                }
+                    shortCode: url.shortCode,
+                    clickCount: url.clickCount,
+                },
             };
             res.status(statusCode_1.HttpStatusCode.CREATED).json(response);
         }
         catch (error) {
             const response = {
                 success: false,
-                message: errorMessage_1.ErrorMessages.SERVER_ERROR
+                message: errorMessage_1.ErrorMessages.SERVER_ERROR,
             };
             res.status(statusCode_1.HttpStatusCode.INTERNAL_SERVER_ERROR).json(response);
         }
@@ -69,20 +72,21 @@ class UrlController {
             const response = {
                 success: true,
                 message: successMessage_1.SuccessMessages.URLS_RETRIEVED_SUCCESSFULLY,
-                data: urls.map(url => ({
+                data: urls.map((url) => ({
                     id: url._id,
                     originalUrl: url.originalUrl,
                     shortUrl: url.shortUrl,
                     shortCode: url.shortCode,
-                    createdAt: url.createdAt
-                }))
+                    clickCount: url.clickCount,
+                    createdAt: url.createdAt,
+                })),
             };
             res.status(statusCode_1.HttpStatusCode.OK).json(response);
         }
         catch (error) {
             const response = {
                 success: false,
-                message: errorMessage_1.ErrorMessages.SERVER_ERROR
+                message: errorMessage_1.ErrorMessages.SERVER_ERROR,
             };
             res.status(statusCode_1.HttpStatusCode.INTERNAL_SERVER_ERROR).json(response);
         }
@@ -90,26 +94,25 @@ class UrlController {
     static async redirectToOriginal(req, res) {
         try {
             const { shortCode } = req.params;
-            console.log(`Attempting to redirect shortCode: ${shortCode}`);
             const url = await urlModel_1.default.findOne({ shortCode });
             if (!url) {
-                console.log(`URL not found for shortCode: ${shortCode}`);
                 const response = {
                     success: false,
-                    message: errorMessage_1.ErrorMessages.URL_NOT_FOUND
+                    message: errorMessage_1.ErrorMessages.URL_NOT_FOUND,
                 };
                 res.status(statusCode_1.HttpStatusCode.NOT_FOUND).json(response);
                 return;
             }
-            console.log(`Redirecting to: ${url.originalUrl}`);
-            // Use 301 for permanent redirect (better for SEO)
+            // ✅ increment click count
+            url.clickCount = (url.clickCount || 0) + 1;
+            await url.save();
             res.redirect(statusCode_1.HttpStatusCode.MOVED_PERMANENTLY, url.originalUrl);
         }
         catch (error) {
             console.error("Redirect error:", error);
             const response = {
                 success: false,
-                message: errorMessage_1.ErrorMessages.SERVER_ERROR
+                message: errorMessage_1.ErrorMessages.SERVER_ERROR,
             };
             res.status(statusCode_1.HttpStatusCode.INTERNAL_SERVER_ERROR).json(response);
         }

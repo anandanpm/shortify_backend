@@ -1,9 +1,4 @@
 "use strict";
-// import { Request, Response } from 'express';
-// import User from '../Model/userModel';
-// import { IUser } from '../Interface/userInterface';
-// import { PasswordUtils } from '../Utils/passwordUtils'; 
-// import { JwtUtils } from '../Utils/jwtUtils';
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -95,14 +90,14 @@ class UserController {
             // Set cookies
             res.cookie('accessToken', accessToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
+                secure: true, // Required for HTTPS
+                sameSite: 'none',
                 maxAge: 15 * 60 * 1000 // 15 minutes
             });
             res.cookie('refreshToken', refreshToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
+                secure: true, // Required for HTTPS
+                sameSite: 'none',
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
             const response = {
@@ -132,17 +127,33 @@ class UserController {
             if (!refreshToken) {
                 const response = {
                     success: false,
-                    message: errorMessage_1.ErrorMessages.REFRESH_TOKEN_NOT_PROVIDED
+                    message: errorMessage_1.ErrorMessages.REFRESH_TOKEN_NOT_PROVIDED,
                 };
                 res.status(statusCode_1.HttpStatusCode.UNAUTHORIZED).json(response);
                 return;
             }
             // Verify refresh token
-            const decoded = jwtUtils_1.JwtUtils.verifyRefreshToken(refreshToken);
-            if (!decoded) {
+            let decoded;
+            try {
+                decoded = jwtUtils_1.JwtUtils.verifyRefreshToken(refreshToken);
+            }
+            catch (error) {
+                // Clear invalid refresh token
+                res.clearCookie("refreshToken");
+                res.clearCookie("accessToken");
                 const response = {
                     success: false,
-                    message: errorMessage_1.ErrorMessages.INVALID_REFRESH_TOKEN
+                    message: errorMessage_1.ErrorMessages.INVALID_REFRESH_TOKEN,
+                };
+                res.status(statusCode_1.HttpStatusCode.UNAUTHORIZED).json(response);
+                return;
+            }
+            if (!decoded) {
+                res.clearCookie("refreshToken");
+                res.clearCookie("accessToken");
+                const response = {
+                    success: false,
+                    message: errorMessage_1.ErrorMessages.INVALID_REFRESH_TOKEN,
                 };
                 res.status(statusCode_1.HttpStatusCode.UNAUTHORIZED).json(response);
                 return;
@@ -150,9 +161,11 @@ class UserController {
             // Find user
             const user = await userModel_1.default.findById(decoded.userId);
             if (!user) {
+                res.clearCookie("refreshToken");
+                res.clearCookie("accessToken");
                 const response = {
                     success: false,
-                    message: errorMessage_1.ErrorMessages.USER_NOT_FOUND
+                    message: errorMessage_1.ErrorMessages.USER_NOT_FOUND,
                 };
                 res.status(statusCode_1.HttpStatusCode.UNAUTHORIZED).json(response);
                 return;
@@ -160,24 +173,24 @@ class UserController {
             // Generate new tokens
             const newAccessToken = jwtUtils_1.JwtUtils.generateAccessToken({
                 userId: user._id.toString(),
-                email: user.email
+                email: user.email,
             });
             const newRefreshToken = jwtUtils_1.JwtUtils.generateRefreshToken({
                 userId: user._id.toString(),
-                email: user.email
+                email: user.email,
             });
             // Set new cookies
-            res.cookie('accessToken', newAccessToken, {
+            res.cookie("accessToken", newAccessToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                maxAge: 15 * 60 * 1000 // 15 minutes
+                secure: true, // Required for HTTPS
+                sameSite: 'none',
+                maxAge: 15 * 60 * 1000, // 15 minutes
             });
-            res.cookie('refreshToken', newRefreshToken, {
+            res.cookie("refreshToken", newRefreshToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+                secure: true, // Required for HTTPS
+                sameSite: 'none',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             });
             const response = {
                 success: true,
@@ -186,17 +199,20 @@ class UserController {
                     user: {
                         id: user._id,
                         name: user.name,
-                        email: user.email
-                    }
-                }
+                        email: user.email,
+                    },
+                },
             };
             res.status(statusCode_1.HttpStatusCode.OK).json(response);
         }
         catch (error) {
-            console.error('Refresh token error:', error);
+            console.error("Refresh token error:", error);
+            // Clear cookies on server error
+            res.clearCookie("refreshToken");
+            res.clearCookie("accessToken");
             const response = {
                 success: false,
-                message: errorMessage_1.ErrorMessages.SERVER_ERROR
+                message: errorMessage_1.ErrorMessages.SERVER_ERROR,
             };
             res.status(statusCode_1.HttpStatusCode.INTERNAL_SERVER_ERROR).json(response);
         }
